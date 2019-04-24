@@ -82,6 +82,14 @@ If you need to support multiple virtual hosts for a container, you can separate 
 
 You can also use wildcards at the beginning and the end of host name, like `*.bar.com` or `foo.bar.*`. Or even a regular expression, which can be very useful in conjunction with a wildcard DNS service like [xip.io](http://xip.io), using `~^foo\.bar\..*\.xip\.io` will match `foo.bar.127.0.0.1.xip.io`, `foo.bar.10.0.2.2.xip.io` and all other given IPs. More information about this topic can be found in the nginx documentation about [`server_names`](http://nginx.org/en/docs/http/server_names.html).
 
+### Path-based Routing
+
+You can have multiple containers proxied by the same `VIRTUAL_HOST` by adding a `VIRTUAL_PATH` environment variable containing the absolute path to where the container should be mounted. For example with `VIRTUAL_HOST=foo.example.com` and `VIRTUAL_PATH=/api/v2/service`, then requests to http://foo.example.com/api/v2/service will be routed to the container. If you wish to have a container serve the root while other containers serve other paths, make give the root container a `VIRTUAL_PATH` of `/`.  Unmatched paths will be served by the container at `/` or will return the default nginx error page if no container has been assigned `/`.
+
+The full request URI will be forwarded to the serving container in the `X-Original-URI` header.
+
+When you want to forward many paths to the same container you can set the variable using a regular expresion. For example VIRTUAL_PATH="~^/(path1|path2)" will answer to requests that start with /path1 or /path2.
+
 ### Multiple Networks
 
 With the addition of [overlay networking](https://docs.docker.com/engine/userguide/networking/get-started-overlay/) in Docker 1.9, your `nginx-proxy` container may need to connect to backend containers on multiple networks. By default, if you don't pass the `--net` flag when your `nginx-proxy` container is created, it will only be attached to the default `bridge` network. This means that it will not be able to connect to containers on networks other than `bridge`.
@@ -128,11 +136,11 @@ backend container. Your backend container should then listen on a port rather
 than a socket and expose that port.
 
 ### FastCGI Backends
- 
+
 If you would like to connect to FastCGI backend, set `VIRTUAL_PROTO=fastcgi` on the
 backend container. Your backend container should then listen on a port rather
 than a socket and expose that port.
- 
+
 ### FastCGI Filr Root Directory
 
 If you use fastcgi,you can set `VIRTUAL_ROOT=xxx`  for your root directory
@@ -294,11 +302,11 @@ site after changing this setting, your browser has probably cached the HSTS poli
 redirecting you back to HTTPS.  You will need to clear your browser's HSTS cache or use an incognito
 window / different browser.
 
-By default, [HTTP Strict Transport Security (HSTS)](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Strict-Transport-Security) 
-is enabled with `max-age=31536000` for HTTPS sites.  You can disable HSTS with the environment variable 
-`HSTS=off` or use a custom HSTS configuration like `HSTS=max-age=31536000; includeSubDomains; preload`.  
-*WARNING*: HSTS will force your users to visit the HTTPS version of your site for the `max-age` time - 
-even if they type in `http://` manually.  The only way to get to an HTTP site after receiving an HSTS 
+By default, [HTTP Strict Transport Security (HSTS)](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Strict-Transport-Security)
+is enabled with `max-age=31536000` for HTTPS sites.  You can disable HSTS with the environment variable
+`HSTS=off` or use a custom HSTS configuration like `HSTS=max-age=31536000; includeSubDomains; preload`.
+*WARNING*: HSTS will force your users to visit the HTTPS version of your site for the `max-age` time -
+even if they type in `http://` manually.  The only way to get to an HTTP site after receiving an HSTS
 response is to clear your browser's HSTS cache.
 
 ### Basic Authentication Support
@@ -337,6 +345,7 @@ proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
 proxy_set_header X-Forwarded-Proto $proxy_x_forwarded_proto;
 proxy_set_header X-Forwarded-Ssl $proxy_x_forwarded_ssl;
 proxy_set_header X-Forwarded-Port $proxy_x_forwarded_port;
+proxy_set_header X-Original-URI $request_uri;
 
 # Mitigate httpoxy attack (see README for details)
 proxy_set_header Proxy "";
